@@ -1,0 +1,455 @@
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ur_10_robot">
+
+<!--
+  Author: Kelsey Hawkins
+  Contributers: Jimmy Da Silva, Ajit Krisshna N L, Muhammad Asif Rana
+-->
+
+  <xacro:macro name="cylinder_inertial_left" params="radius length mass *origin">
+    <inertial>
+      <mass value="${mass}" />
+      <xacro:insert_block name="origin" />
+      <inertia ixx="${0.0833333 * mass * (3 * radius * radius + length * length)}" ixy="0.0" ixz="0.0"
+        iyy="${0.0833333 * mass * (3 * radius * radius + length * length)}" iyz="0.0"
+        izz="${0.5 * mass * radius * radius}" />
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="ur10e_robot_left" params="prefix joint_limited
+    shoulder_pan_lower_limit:=${-pi}    shoulder_pan_upper_limit:=${pi}
+    shoulder_lift_lower_limit:=${-pi}    shoulder_lift_upper_limit:=${pi}
+    elbow_joint_lower_limit:=${-pi}    elbow_joint_upper_limit:=${pi}
+    wrist_1_lower_limit:=${-pi}    wrist_1_upper_limit:=${pi}
+    wrist_2_lower_limit:=${-pi}    wrist_2_upper_limit:=${pi}
+    wrist_3_lower_limit:=${-pi}    wrist_3_upper_limit:=${pi}
+    transmission_hw_interface:=hardware_interface/PositionJointInterface
+    safety_limits:=false safety_pos_margin:=0.15
+    safety_k_position:=20">
+
+    <!-- Inertia parameters -->
+    <xacro:property name="base_left_mass_left" value="4.0" />  <!-- This mass might be incorrect -->
+    <xacro:property name="shoulder_mass_left" value="7.778" />
+    <xacro:property name="upper_arm_mass_left" value="12.93" />
+    <xacro:property name="forearm_mass_left" value="3.87" />
+    <xacro:property name="wrist_1_mass_left" value="1.96" />
+    <xacro:property name="wrist_2_mass_left" value="1.96" />
+    <xacro:property name="wrist_3_mass_left" value="0.202" />
+
+    <!-- These parameters are borrowed from the urcontrol.conf file
+        but are not verified for the correct permutation.
+        The permutation was guessed by looking at the ur5e parameters.
+        Serious use of these parameters needs further inspection. -->
+    <xacro:property name="shoulder_cog_left" value="0.00008 0.00244 -0.037" />
+    <xacro:property name="upper_arm_cog_left" value="0.00001 0.15061 0.38757" />
+    <xacro:property name="forearm_cog_left" value="-0.00012 0.06112 0.1984" />
+    <xacro:property name="wrist_1_cog_left" value="-0.00021 -0.00112 0.02269" />
+    <xacro:property name="wrist_2_cog_left" value="-0.00021 0.00112 0.002269" />
+    <xacro:property name="wrist_3_cog_left" value="0 -0.001156 -0.00149" />
+
+    <!-- Kinematic model -->
+    <!-- Properties from urcontrol.conf -->
+    <xacro:property name="d1_left" value="0.181" />
+    <xacro:property name="a2_left" value="-0.613" />
+    <xacro:property name="a3_left" value="-0.571" />
+    <xacro:property name="d4_left" value="0.135" />
+    <xacro:property name="d5_left" value="0.120" />
+    <xacro:property name="d6_left" value="0.117" />
+
+    <!-- Arbitrary offsets for shoulder/elbow joints -->
+    <xacro:property name="shoulder_offset_left" value="0.176" />
+    <xacro:property name="elbow_offset_left" value="-0.137" />
+
+    <!-- link lengths used in model -->
+    <xacro:property name="shoulder_height_left" value="${d1_left}" />
+    <xacro:property name="upper_arm_length_left" value="${-a2_left}" />
+    <xacro:property name="forearm_length_left" value="${-a3_left}" />
+    <xacro:property name="wrist_1_length_left" value="${d4_left}" />
+    <xacro:property name="wrist_2_length_left" value="${d5_left}" />
+    <xacro:property name="wrist_3_length_left" value="${d6_left}" />
+
+    <link name="${prefix}base_link_left" >
+      <visual>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/visual/base.dae"/>
+        </geometry>
+        <material name="LightGrey">
+          <color rgba="0.7 0.7 0.7 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/collision/base.stl"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial_left radius="0.075" length="0.038" mass="${base_left_mass_left}">
+        <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+      </xacro:cylinder_inertial_left>
+    </link>
+
+    <joint name="${prefix}shoulder_pan_joint_left" type="revolute">
+      <parent link="${prefix}base_link_left" />
+      <child link = "${prefix}shoulder_link_left" />
+      <origin xyz="0.0 0.0 ${shoulder_height_left}" rpy="0.0 0.0 0.0" />
+      <axis xyz="0 0 1" />
+      <xacro:unless value="${joint_limited}">
+        <limit lower="${-2.0 * pi}" upper="${2.0 * pi}" effort="330.0" velocity="3.14"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${-2.0 * pi + safety_pos_margin}" soft_upper_limit="${2.0 * pi - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:unless>
+      <xacro:if value="${joint_limited}">
+        <limit lower="${shoulder_pan_lower_limit}" upper="${shoulder_pan_upper_limit}" effort="330.0" velocity="3.14"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${shoulder_pan_lower_limit + safety_pos_margin}" soft_upper_limit="${shoulder_pan_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:if>
+      <dynamics damping="0.0" friction="0.0"/>
+    </joint>
+
+    <link name="${prefix}shoulder_link_left">
+      <visual>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/visual/shoulder.dae"/>
+        </geometry>
+        <material name="LightGrey">
+          <color rgba="0.7 0.7 0.7 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/collision/shoulder.stl"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial_left radius="0.075" length="0.178" mass="${shoulder_mass_left}">
+        <origin xyz="0.0 0.0 0.0" rpy="0 0 0" />
+      </xacro:cylinder_inertial_left>
+    </link>
+
+    <joint name="${prefix}shoulder_lift_joint_left" type="revolute">
+      <parent link="${prefix}shoulder_link_left" />
+      <child link = "${prefix}upper_arm_link_left" />
+      <!-- <origin xyz="0.0 ${shoulder_offset_left} 0.0" rpy="0.0 ${pi / 2.0} 0.0" /> -->
+      <origin xyz="0.0 ${shoulder_offset_left} 0.0" rpy="0.0 0.0 0.0" />
+      <axis xyz="0 1 0" />
+      <xacro:unless value="${joint_limited}">
+        <limit lower="${-2.0 * pi}" upper="${2.0 * pi}" effort="330.0" velocity="3.14"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${-2.0 * pi + safety_pos_margin}" soft_upper_limit="${2.0 * pi - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:unless>
+      <xacro:if value="${joint_limited}">
+        <limit lower="${shoulder_lift_lower_limit}" upper="${shoulder_lift_upper_limit}" effort="330.0" velocity="3.14"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${shoulder_lift_lower_limit + safety_pos_margin}" soft_upper_limit="${shoulder_lift_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:if>
+      <dynamics damping="0.0" friction="0.0"/>
+    </joint>
+
+    <link name="${prefix}upper_arm_link_left">
+      <visual>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/visual/upperarm.dae"/>
+        </geometry>
+        <material name="LightGrey">
+          <color rgba="0.7 0.7 0.7 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/collision/upperarm.stl"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial_left radius="0.075" length="${-a2_left}" mass="${upper_arm_mass_left}">
+        <origin xyz="0.0 0.0 ${-a2_left/2.0}" rpy="0 0 0" />
+      </xacro:cylinder_inertial_left>
+    </link>
+
+    <joint name="${prefix}elbow_joint_left" type="revolute">
+      <parent link="${prefix}upper_arm_link_left" />
+      <child link = "${prefix}forearm_link_left" />
+      <origin xyz="0.0 ${elbow_offset_left} ${upper_arm_length_left}" rpy="0.0 0.0 0.0" />
+      <axis xyz="0 1 0" />
+      <xacro:unless value="${joint_limited}">
+        <limit lower="${-pi}" upper="${pi}" effort="150.0" velocity="3.14"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${-2.0 * pi + safety_pos_margin}" soft_upper_limit="${2.0 * pi - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:unless>
+      <xacro:if value="${joint_limited}">
+        <limit lower="${elbow_joint_lower_limit}" upper="${elbow_joint_upper_limit}" effort="150.0" velocity="3.14"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${elbow_joint_lower_limit + safety_pos_margin}" soft_upper_limit="${elbow_joint_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:if>
+      <dynamics damping="0.0" friction="0.0"/>
+    </joint>
+
+    <link name="${prefix}forearm_link_left">
+      <visual>
+         <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/visual/forearm.dae"/>
+        </geometry>
+        <material name="LightGrey">
+          <color rgba="0.7 0.7 0.7 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/collision/forearm.stl"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial_left radius="0.075" length="${-a3_left}" mass="${forearm_mass_left}">
+        <origin xyz="0.0 0.0 ${-a3_left/2.0}" rpy="0 0 0" />
+      </xacro:cylinder_inertial_left>
+    </link>
+
+    <joint name="${prefix}wrist_1_joint_left" type="revolute">
+      <parent link="${prefix}forearm_link_left" />
+      <child link = "${prefix}wrist_1_link_left" />
+      <!-- <origin xyz="0.0 0.0 ${forearm_length_left}" rpy="0.0 ${pi / 2.0} 0.0" /> -->
+      <origin xyz="0.0 0.0 ${forearm_length_left}" rpy="0.0 0.0 0.0" />
+      <axis xyz="0 1 0" />
+      <xacro:unless value="${joint_limited}">
+        <limit lower="${-2.0 * pi}" upper="${2.0 * pi}" effort="54.0" velocity="6.28"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${-2.0 * pi + safety_pos_margin}" soft_upper_limit="${2.0 * pi - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:unless>
+      <xacro:if value="${joint_limited}">
+        <limit lower="${wrist_1_lower_limit}" upper="${wrist_1_upper_limit}" effort="54.0" velocity="6.28"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${wrist_1_lower_limit + safety_pos_margin}" soft_upper_limit="${wrist_1_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:if>
+      <dynamics damping="0.0" friction="0.0"/>
+    </joint>
+
+    <link name="${prefix}wrist_1_link_left">
+      <visual>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/visual/wrist1.dae"/>
+        </geometry>
+        <material name="LightGrey">
+          <color rgba="0.7 0.7 0.7 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/collision/wrist1.stl"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial_left radius="0.075" length="0.12" mass="${wrist_1_mass_left}">
+        <origin xyz="0.0 ${wrist_1_length_left} 0.0" rpy="0 0 0" />
+      </xacro:cylinder_inertial_left>
+    </link>
+
+    <joint name="${prefix}wrist_2_joint_left" type="revolute">
+      <parent link="${prefix}wrist_1_link_left" />
+      <child link = "${prefix}wrist_2_link_left" />
+      <origin xyz="0.0 ${wrist_1_length_left} 0.0" rpy="0.0 0.0 0.0" />
+      <axis xyz="0 0 1" />
+      <xacro:unless value="${joint_limited}">
+        <limit lower="${-2.0 * pi}" upper="${2.0 * pi}" effort="54.0" velocity="6.28"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${-2.0 * pi + safety_pos_margin}" soft_upper_limit="${2.0 * pi - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:unless>
+      <xacro:if value="${joint_limited}">
+        <limit lower="${wrist_2_lower_limit}" upper="${wrist_2_upper_limit}" effort="54.0" velocity="6.28"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${wrist_2_lower_limit + safety_pos_margin}" soft_upper_limit="${wrist_2_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:if>
+      <dynamics damping="0.0" friction="0.0"/>
+    </joint>
+
+    <link name="${prefix}wrist_2_link_left">
+      <visual>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/visual/wrist2.dae"/>
+        </geometry>
+        <material name="LightGrey">
+          <color rgba="0.7 0.7 0.7 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/collision/wrist2.stl"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial_left radius="0.075" length="0.12" mass="${wrist_2_mass_left}">
+        <origin xyz="0.0 0.0 ${wrist_2_length_left}" rpy="0 0 0" />
+      </xacro:cylinder_inertial_left>
+    </link>
+
+    <joint name="${prefix}wrist_3_joint_left" type="revolute">
+      <parent link="${prefix}wrist_2_link_left" />
+      <child link = "${prefix}wrist_3_link_left" />
+      <origin xyz="0.0 0.0 ${wrist_2_length_left}" rpy="0.0 0.0 0.0" />
+      <axis xyz="0 1 0" />
+      <xacro:unless value="${joint_limited}">
+        <limit lower="${-2.0 * pi}" upper="${2.0 * pi}" effort="54.0" velocity="6.28"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${-2.0 * pi + safety_pos_margin}" soft_upper_limit="${2.0 * pi - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:unless>
+      <xacro:if value="${joint_limited}">
+        <limit lower="${wrist_3_lower_limit}" upper="${wrist_3_upper_limit}" effort="54.0" velocity="6.28"/>
+        <xacro:if value="${safety_limits}">
+          <safety_controller soft_lower_limit="${wrist_3_lower_limit + safety_pos_margin}" soft_upper_limit="${wrist_3_upper_limit - safety_pos_margin}" k_position="${safety_k_position}" k_velocity="0.0"/>
+        </xacro:if>
+      </xacro:if>
+      <dynamics damping="0.0" friction="0.0"/>
+    </joint>
+
+    <link name="${prefix}wrist_3_link_left">
+      <visual>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/visual/wrist3.dae"/>
+        </geometry>
+        <material name="LightGrey">
+          <color rgba="0.7 0.7 0.7 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <mesh filename="package://arm_controller/ur_e_description/meshes/ur10e/collision/wrist3.stl"/>
+        </geometry>
+      </collision>
+      <xacro:cylinder_inertial_left radius="0.045" length="0.05" mass="${wrist_3_mass_left}">
+        <origin xyz="0.0 ${wrist_3_length_left - 0.05/2} 0.0" rpy="${pi/2} 0 0" />
+      </xacro:cylinder_inertial_left>
+    </link>
+
+    <joint name="${prefix}ee_fixed_joint_left" type="fixed">
+      <parent link="${prefix}wrist_3_link_left" />
+      <child link = "${prefix}ee_link_left" />
+      <origin xyz="0.0 ${wrist_3_length_left} 0.0" rpy="0.0 0.0 ${pi/2.0}" />
+    </joint>
+
+    <link name="${prefix}ee_link_left">
+      <collision>
+        <geometry>
+          <box size="0.01 0.01 0.01"/>
+        </geometry>
+        <origin rpy="0 0 0" xyz="-0.01 0 0"/>
+      </collision>
+    </link>
+
+    <xacro:ur_arm_transmission_left prefix="${prefix}" hw_interface="${transmission_hw_interface}"/>
+    <xacro:ur_arm_gazebo_left prefix="${prefix}" />
+
+    <!-- ROS base_link_left to UR 'base_left' Coordinates transform -->
+    <link name="${prefix}base_left"/>
+    <joint name="${prefix}base_link_left-base_left_fixed_joint_left" type="fixed">
+      <!-- NOTE: this rotation is only needed as long as base_link_left itself is
+                 not corrected wrt the real robot (ie: rotated over 180
+                 degrees)
+      -->
+      <origin xyz="0 0 0" rpy="0 0 ${-pi}"/>
+      <parent link="${prefix}base_link_left"/>
+      <child link="${prefix}base_left"/>
+    </joint>
+
+    <!-- Frame coincident with all-zeros TCP on UR controller -->
+    <link name="${prefix}tool0_left"/>
+    <joint name="${prefix}wrist_3_link_left-tool0_left_fixed_joint_left" type="fixed">
+      <origin xyz="0 ${wrist_3_length_left} 0" rpy="${pi/-2.0} 0 0"/>
+      <parent link="${prefix}wrist_3_link_left"/>
+      <child link="${prefix}tool0_left"/>
+    </joint>
+
+  </xacro:macro>
+
+    <xacro:macro name="ur_arm_transmission_left" params="prefix hw_interface">
+
+    <transmission name="${prefix}shoulder_pan_trans_left">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}shoulder_pan_joint_left">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}shoulder_pan_motor_left">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}shoulder_lift_trans_left">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}shoulder_lift_joint_left">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}shoulder_lift_motor_left">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}elbow_trans_left">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}elbow_joint_left">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}elbow_motor_left">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}wrist_1_trans_left">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}wrist_1_joint_left">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}wrist_1_motor_left">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}wrist_2_trans_left">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}wrist_2_joint_left">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}wrist_2_motor_left">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="${prefix}wrist_3_trans_left">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="${prefix}wrist_3_joint_left">
+        <hardwareInterface>${hw_interface}</hardwareInterface>
+      </joint>
+      <actuator name="${prefix}wrist_3_motor_left">
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+  </xacro:macro>
+
+  <xacro:macro name="ur_arm_gazebo_left" params="prefix">
+
+    <gazebo reference="${prefix}shoulder_link_left">
+      <selfCollide>true</selfCollide>
+    </gazebo>
+    <gazebo reference="${prefix}upper_arm_link_left">
+      <selfCollide>true</selfCollide>
+    </gazebo>
+    <gazebo reference="${prefix}forearm_link_left">
+      <selfCollide>true</selfCollide>
+    </gazebo>
+    <gazebo reference="${prefix}wrist_1_link_left">
+      <selfCollide>true</selfCollide>
+    </gazebo>
+    <gazebo reference="${prefix}wrist_3_link_left">
+      <selfCollide>true</selfCollide>
+    </gazebo>
+    <gazebo reference="${prefix}wrist_2_link_left">
+      <selfCollide>true</selfCollide>
+    </gazebo>
+    <gazebo reference="${prefix}ee_link_left">
+      <selfCollide>true</selfCollide>
+    </gazebo>
+
+  </xacro:macro>
+
+</robot>
